@@ -1,0 +1,5 @@
+I want to create a small cli rust app, 
+that checks a given Directory tree and finds duplicate files
+the option either delete or just list them.
+
+Please start by running an appropiate cargo init command and setting up a nice code/test architecure.
