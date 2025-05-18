@@ -2,10 +2,10 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub fn list_dir(path: &PathBuf, max_depth: usize, include_hidden: bool) -> Vec<PathBuf> {
-    fn is_hidden(path: &PathBuf) -> bool {
+    fn is_hidden(path: &Path) -> bool {
         path.file_name()
             .and_then(|n| n.to_str())
             .map(|n| n.starts_with('.'))
@@ -52,7 +52,7 @@ pub fn find_duplicates(
     for file in files {
         if let Ok(metadata) = fs::metadata(&file) {
             let size = metadata.len();
-            size_map.entry(size).or_insert_with(Vec::new).push(file);
+            size_map.entry(size).or_default().push(file);
         }
     }
     // Now, for each group with more than one file, hash contents
@@ -72,10 +72,7 @@ pub fn find_duplicates(
                     hasher.update(&buf[..n]);
                 }
                 let hash = format!("{:x}", hasher.finalize());
-                hashes
-                    .entry(hash)
-                    .or_insert_with(Vec::new)
-                    .push(file.clone());
+                hashes.entry(hash).or_default().push(file.clone());
             }
         }
         for (hash, group) in hashes {

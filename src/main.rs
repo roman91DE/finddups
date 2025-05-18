@@ -27,7 +27,7 @@ fn main() {
         println!("No duplicates found.");
         return;
     }
-    for (_hash, files) in &dups {
+    for files in dups.values() {
         if files.len() > 1 {
             println!("Duplicate group:");
             for file in files {
