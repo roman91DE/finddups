@@ -41,6 +41,7 @@ fn main() {
                 println!("  {}", file.display());
             }
             if config.delete {
+for file in files.iter().skip(1)
                 if let Err(e) = finddups::dups::delete_files(files) {
                     eprintln!("Error deleting files: {}", e);
                 } else {
