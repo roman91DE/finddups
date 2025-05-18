@@ -16,13 +16,20 @@ struct Cli {
     /// Include hidden files and directories
     #[arg(long)]
     pub hidden: bool,
+    /// Use single-threaded mode (disable parallel hashing)
+    #[arg(long)]
+    pub single_threaded: bool,
 }
 
 fn main() {
     let cli = Cli::parse();
     let config = Config::new(cli.directory, cli.delete, cli.depth, cli.hidden);
-    let dups =
-        finddups::dups::find_duplicates(&config.root_dir, config.max_depth, config.include_hidden);
+    let dups = finddups::dups::find_duplicates(
+        &config.root_dir,
+        config.max_depth,
+        config.include_hidden,
+        cli.single_threaded,
+    );
     if dups.is_empty() {
         println!("No duplicates found.");
         return;

@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
@@ -45,6 +46,7 @@ pub fn find_duplicates(
     root: &PathBuf,
     max_depth: usize,
     include_hidden: bool,
+    single_threaded: bool,
 ) -> HashMap<String, Vec<PathBuf>> {
     let files = list_dir(root, max_depth, include_hidden);
     let mut size_map: HashMap<u64, Vec<PathBuf>> = HashMap::new();
@@ -58,24 +60,54 @@ pub fn find_duplicates(
     // Now, for each group with more than one file, hash contents
     let mut hash_map: HashMap<String, Vec<PathBuf>> = HashMap::new();
     for files in size_map.values().filter(|v| v.len() > 1) {
-        let mut hashes: HashMap<String, Vec<PathBuf>> = HashMap::new();
-        for file in files {
-            if let Ok(mut f) = fs::File::open(file) {
-                let mut hasher = Sha256::new();
-                let mut buf = [0u8; 8192];
-                loop {
-                    let n = match f.read(&mut buf) {
-                        Ok(0) => break,
-                        Ok(n) => n,
-                        Err(_) => break,
-                    };
-                    hasher.update(&buf[..n]);
-                }
-                let hash = format!("{:x}", hasher.finalize());
-                hashes.entry(hash).or_default().push(file.clone());
-            }
+        let hashes: Vec<(String, PathBuf)> = if single_threaded {
+            files
+                .iter()
+                .filter_map(|file| {
+                    if let Ok(mut f) = fs::File::open(file) {
+                        let mut hasher = Sha256::new();
+                        let mut buf = [0u8; 8192];
+                        loop {
+                            let n = match f.read(&mut buf) {
+                                Ok(0) => break,
+                                Ok(n) => n,
+                                Err(_) => return None,
+                            };
+                            hasher.update(&buf[..n]);
+                        }
+                        Some((format!("{:x}", hasher.finalize()), file.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        } else {
+            files
+                .par_iter()
+                .filter_map(|file| {
+                    if let Ok(mut f) = fs::File::open(file) {
+                        let mut hasher = Sha256::new();
+                        let mut buf = [0u8; 8192];
+                        loop {
+                            let n = match f.read(&mut buf) {
+                                Ok(0) => break,
+                                Ok(n) => n,
+                                Err(_) => return None,
+                            };
+                            hasher.update(&buf[..n]);
+                        }
+                        Some((format!("{:x}", hasher.finalize()), file.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        };
+        let mut group_map: HashMap<String, Vec<PathBuf>> = HashMap::new();
+        for (hash, file) in hashes {
+            group_map.entry(hash).or_default().push(file);
         }
-        for (hash, group) in hashes {
+        for (hash, group) in group_map {
             if group.len() > 1 {
                 hash_map.insert(hash, group);
             }

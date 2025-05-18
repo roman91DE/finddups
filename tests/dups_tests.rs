@@ -1,7 +1,6 @@
 use finddups::dups;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
 use tempfile::tempdir;
 
 #[cfg(test)]
@@ -111,7 +110,7 @@ mod tests {
     #[test]
     fn test_find_duplicates_empty() {
         let dir = tempdir().unwrap();
-        let result = dups::find_duplicates(&dir.path().to_path_buf(), 1, false);
+        let result = dups::find_duplicates(&dir.path().to_path_buf(), 1, false, false);
         assert!(result.is_empty());
     }
 
@@ -119,7 +118,7 @@ mod tests {
     fn test_find_duplicates_with_dups() {
         let td = TestDir::new_with_duplicates();
         // Use max_depth=0, include_hidden=true to match the file creation and ensure all files are found
-        let result = dups::find_duplicates(&td.root.path().to_path_buf(), 0, true);
+        let result = dups::find_duplicates(&td.root.path().to_path_buf(), 0, true, false);
         assert_eq!(result.len(), 1, "Expected one group of duplicates");
         let files = result.values().next().unwrap();
         assert_eq!(files.len(), 2, "Expected two duplicate files");
@@ -133,7 +132,7 @@ mod tests {
     #[test]
     fn test_find_duplicates_without_dups() {
         let td = TestDir::new_without_duplicates();
-        let result = dups::find_duplicates(&td.root.path().to_path_buf(), 1, false);
+        let result = dups::find_duplicates(&td.root.path().to_path_buf(), 1, true, false);
         assert!(result.is_empty(), "Expected no duplicates");
     }
 
@@ -163,5 +162,16 @@ mod tests {
         let mut expected = vec![td.file1, td.file2, td.subfile, td.dup1, td.dup2];
         expected.sort();
         assert_eq!(files, expected, "Files found do not match expected");
+    }
+
+    #[test]
+    fn test_multithreaded_vs_singlethreaded_equivalence() {
+        let td = TestDir::new_with_duplicates();
+        let mt = dups::find_duplicates(&td.root.path().to_path_buf(), 0, true, false);
+        let st = dups::find_duplicates(&td.root.path().to_path_buf(), 0, true, true);
+        assert_eq!(
+            mt, st,
+            "Multithreaded and single-threaded results should be identical"
+        );
     }
 }
