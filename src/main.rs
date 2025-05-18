@@ -1,16 +1,28 @@
+use clap::Parser;
 use finddups::config::Config;
-use std::env;
+
+/// Find duplicate files in a directory tree
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// Directory to search
+    pub directory: std::path::PathBuf,
+    /// Delete duplicate files
+    #[arg(long)]
+    pub delete: bool,
+    /// Maximum directory depth (0 = unlimited)
+    #[arg(long, default_value_t = 1)]
+    pub depth: usize,
+    /// Include hidden files and directories
+    #[arg(long)]
+    pub hidden: bool,
+}
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Usage: {} <directory> [--delete]", args[0]);
-        std::process::exit(1);
-    }
-    let root_dir = std::path::PathBuf::from(&args[1]);
-    let delete = args.iter().any(|a| a == "--delete");
-    let config = Config::new(root_dir, delete);
-    let dups = finddups::dups::find_duplicates(&config.root_dir);
+    let cli = Cli::parse();
+    let config = Config::new(cli.directory, cli.delete, cli.depth, cli.hidden);
+    let dups =
+        finddups::dups::find_duplicates(&config.root_dir, config.max_depth, config.include_hidden);
     if dups.is_empty() {
         println!("No duplicates found.");
         return;
